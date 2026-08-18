@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>EgyGulf Foods — Invoice Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* ─── RESET ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+body {
+  background: #0f1623;
+  color: #f0f4ff;
+  font-family: 'Inter', 'Cairo', Arial, sans-serif;
+  min-height: 100vh;
+}
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: rgba(255,182,7,.3); border-radius: 6px; }
+
+/* ─── TOP BAR ─── */
+.topbar {
+  background: #1a2233;
+  border-bottom: 2px solid rgba(255,182,7,.3);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.page-title  { font-size: 17px; font-weight: 900; color: #ffffff; line-height: 1.2; }
+.page-sub    { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+.topbar-btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ─── BUTTONS ─── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 18px; border: none; border-radius: 10px;
+  font-family: 'Inter', 'Cairo', Arial, sans-serif;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  white-space: nowrap; transition: all .15s;
+  min-height: 42px;
+}
+.btn:active { transform: scale(.97); }
+.btn-amber { background: linear-gradient(135deg,#ffb607,#e09500); color: #000; }
+.btn-amber:hover { background: linear-gradient(135deg,#ffc62a,#f0a500); }
+.btn-outline { background: transparent; color: #ffb607; border: 2px solid rgba(255,182,7,.5); }
+.btn-outline:hover { background: rgba(255,182,7,.12); }
+.btn-ghost { background: rgba(255,255,255,.07); color: #cbd5e1; border: 1px solid rgba(255,255,255,.12); }
+.btn-ghost:hover { background: rgba(255,255,255,.13); color: #fff; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-sm { padding: 8px 14px; font-size: 12px; min-height: 36px; border-radius: 8px; }
+
+/* ─── MOBILE TABS ─── */
+.tab-bar {
+  display: none;
+  background: #1a2233;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+  position: sticky;
+  top: 58px;
+  z-index: 150;
+}
+.tab-btn {
+  flex: 1; padding: 13px; border: none; background: transparent;
+  color: #94a3b8; font-family: 'Inter','Cairo',Arial,sans-serif;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  border-bottom: 3px solid transparent; transition: all .15s;
+}
+.tab-btn.active { color: #ffb607; border-bottom-color: #ffb607; }
+
+/* ─── LAYOUT ─── */
+.content {
+  display: grid;
+  grid-template-columns: 460px 1fr;
+  min-height: calc(100vh - 60px);
+  align-items: start;
+}
+.form-panel {
+  background: #131c2b;
+  border-right: 1px solid rgba(255,255,255,.08);
+  padding: 18px;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+  position: sticky;
+  top: 60px;
+}
+.preview-panel {
+  padding: 20px;
+  background: #0f1623;
+}
+
+/* ─── SECTION CARD ─── */
+.card {
+  background: #1a2233;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+.sec-title {
+  font-size: 11px; font-weight: 800;
+  letter-spacing: 1.6px; text-transform: uppercase;
+  color: #ffb607; margin-bottom: 14px;
+}
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ─── FORM INPUTS ─── */
+.fg { margin-bottom: 10px; }
+.fg:last-child { margin-bottom: 0; }
+.fl {
+  display: block;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .5px; text-transform: uppercase;
+  color: #94a3b8; margin-bottom: 5px;
+}
+.fi {
+  width: 100%;
+  background: #ffffff;
+  border: 2px solid #d1d5db;
+  border-radius: 9px;
+  padding: 10px 13px;
+  color: #111827;
+  font-family: 'Inter', 'Cairo', Arial, sans-serif;
+  font-size: 14px; font-weight: 500;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 44px;
+}
+.fi:focus {
+  border-color: #ffb607;
+  box-shadow: 0 0 0 3px rgba(255,182,7,.2);
+}
+.fi::placeholder { color: #9ca3af; }
+
+/* ─── LINE ITEMS ─── */
+.items-hdr {
+  display: grid;
+  grid-template-columns: 1fr 68px 56px 64px 72px 34px;
+  gap: 5px; padding: 0 2px; margin-bottom: 8px;
+}
+.items-hdr span {
+  font-size: 10px; font-weight: 700; color: #64748b;
+  text-transform: uppercase; letter-spacing: .3px; text-align: center;
+}
+.items-hdr span:first-child { text-align: left; }
+
+.item-row {
+  display: grid;
+  grid-template-columns: 1fr 68px 56px 64px 72px 34px;
+  gap: 5px; margin-bottom: 10px; align-items: start;
+}
+.item-cell { display: flex; flex-direction: column; gap: 4px; }
+
+.ii {
+  width: 100%;
+  background: #ffffff;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 6px;
+  color: #111827;
+  font-family: 'Inter', 'Cairo', Arial, sans-serif;
+  font-size: 13px; font-weight: 500;
+  outline: none; text-align: center;
+  transition: border-color .15s;
+  -webkit-appearance: none;
+  min-height: 40px;
+}
+.ii:focus { border-color: #ffb607; box-shadow: 0 0 0 3px rgba(255,182,7,.18); }
+.ii::placeholder { color: #9ca3af; }
+.ii.left { text-align: left; padding-left: 9px; }
+
+/* remove button */
+.rb {
+  background: #fee2e2; border: 2px solid #fca5a5;
+  color: #dc2626; width: 34px; height: 40px;
+  border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 700; flex-shrink: 0;
+  transition: .15s;
+}
+.rb:hover { background: #fecaca; }
+
+/* ─── FLAVOUR TAGS ─── */
+.ftags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.ftag {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: rgba(255,182,7,.15); border: 1.5px solid rgba(255,182,7,.45);
+  color: #fbbf24; font-size: 11px; font-weight: 700;
+  padding: 3px 9px; border-radius: 20px;
+}
+.ftag-del {
+  background: none; border: none; color: #f59e0b;
+  cursor: pointer; font-size: 16px; line-height: 1; padding: 0;
+}
+.fadd-row { display: flex; gap: 4px; margin-top: 4px; }
+.fadd-inp {
+  flex: 1; min-height: 36px;
+  background: #fff7ed; border: 2px dashed #fcd34d;
+  border-radius: 8px; padding: 6px 10px;
+  color: #92400e; font-family: 'Inter','Cairo',Arial,sans-serif;
+  font-size: 12px; outline: none; font-style: italic;
+}
+.fadd-inp:focus { border-color: #f59e0b; border-style: solid; }
+.fadd-inp::placeholder { color: #d97706; }
+.fadd-btn {
+  background: #fef3c7; border: 2px solid #fcd34d;
+  color: #92400e; border-radius: 8px;
+  width: 36px; height: 36px;
+  cursor: pointer; font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-weight: 700; transition: .15s;
+}
+.fadd-btn:hover { background: #fde68a; }
+
+/* ─── TOTALS ─── */
+.totals {
+  display: flex; justify-content: flex-end; gap: 16px;
+  padding-top: 12px; border-top: 1px solid rgba(255,255,255,.1);
+  margin-top: 12px; flex-wrap: wrap; align-items: center;
+}
+.titem { font-size: 13px; color: #94a3b8; }
+.titem strong { color: #ffb607; font-size: 14px; }
+
+/* ─── PREVIEW HEADER ─── */
+.prev-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
+}
+.prev-label {
+  font-size: 11px; color: #64748b; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase;
+}
+
+/* ─── INVOICE ─── */
+.inv {
+  background: #fff; border-radius: 10px; overflow: hidden;
+  font-family: Arial, sans-serif;
+  box-shadow: 0 8px 40px rgba(0,0,0,.4);
+}
+.inv-table { width: 100%; border-collapse: collapse; }
+.inv-table th {
+  background: #2d2a76; color: #ffb607;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: .4px; text-transform: uppercase;
+  padding: 9px 8px; text-align: center;
+  border: 1px solid #2d2a76;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.inv-table th:nth-child(2) { text-align: left; }
+.inv-table td {
+  padding: 8px 8px; font-size: 12px;
+  border: 1px solid #e5e7eb; text-align: center;
+  color: #111; vertical-align: middle;
+}
+.inv-table td:nth-child(2) { text-align: left; font-weight: 600; }
+.inv-table tr:nth-child(even) td { background: #f0f4ff; }
+.inv-total-row td {
+  background: #dbeafe !important; font-weight: 700;
+  font-size: 13px; color: #1e3a8a;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+
+/* ─── PRINT ─── */
+@media print {
+  .topbar,.tab-bar,.form-panel,.prev-head { display: none !important; }
+  .content { display: block !important; }
+  .preview-panel { padding: 0 !important; }
+  .inv { border-radius: 0 !important; box-shadow: none !important; }
+  body { background: #fff !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  @page { margin: 8mm; size: A4; }
+}
+
+/* ─── MOBILE ─── */
+@media (max-width: 800px) {
+  .tab-bar { display: flex; top: 56px; }
+  .content { grid-template-columns: 1fr; min-height: auto; }
+  .form-panel {
+    height: auto; position: static; overflow-y: visible;
+    display: none; /* hidden by default, shown by tab */
+    border-right: none; border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .form-panel.tab-active { display: block; }
+  .preview-panel { display: none; }
+  .preview-panel.tab-active { display: block; }
+  .topbar { top: 0; padding: 10px 14px; }
+  .page-title { font-size: 15px; }
+  .btn { font-size: 12px; padding: 9px 14px; min-height: 40px; }
+  /* stack item rows on mobile */
+  .items-hdr { display: none; }
+  .item-row {
+    display: flex; flex-direction: column; gap: 8px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 10px; padding: 12px;
+    margin-bottom: 12px;
+  }
+  .item-row > .item-cell { width: 100%; }
+  .item-row > input[type="text"],
+  .item-row > input[type="number"],
+  .item-row > .ii { width: 100%; text-align: left; padding-left: 12px; }
+  .item-row-meta {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .item-row-meta label { font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 3px; display: block; }
+  .rb { width: 100%; height: 44px; border-radius: 8px; }
+  .inv { font-size: 11px; }
+  .inv-table th { font-size: 8.5px; padding: 6px 4px; }
+  .inv-table td { font-size: 10px; padding: 5px 4px; }
+  .grid2 { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 400px) {
+  .topbar-btns .btn-ghost { display: none; }
+  .topbar-btns .btn-outline { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ TOP BAR ══════════════ -->
+<header class="topbar">
+  <div class="brand">
+    <svg width="100" height="38" viewBox="0 0 100 38" xmlns="http://www.w3.org/2000/svg">
+      <text x="2" y="27" font-family="Arial Black,Arial,sans-serif" font-weight="900"
+            font-size="23" fill="#ffffff" letter-spacing="-1">egygulf</text>
+      <text x="54" y="37" font-family="Arial Black,Arial,sans-serif" font-weight="700"
+            font-size="11" fill="#ffb607" letter-spacing="0.4">Foods</text>
+      <ellipse cx="33" cy="5" rx="4" ry="5.5" fill="#ffb607" transform="rotate(-15,33,5)"/>
+    </svg>
+    <div>
+      <div class="page-title">Invoice Generator</div>
+      <div class="page-sub">Commercial Invoice — فاتورة تجارية</div>
+    </div>
+  </div>
+  <div class="topbar-btns">
+    <button class="btn btn-ghost" onclick="clearForm()">🗑 Clear</button>
+    <button class="btn btn-outline" onclick="window.print()">🖨️ Print</button>
+    <button class="btn btn-amber" id="dl-btn" onclick="downloadPDF()">⬇️ Download PDF</button>
+  </div>
+</header>
+
+<!-- ══════════════ MOBILE TAB BAR ══════════════ -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-form" onclick="switchTab('form')">📝 Fill Form</button>
+  <button class="tab-btn" id="tab-prev" onclick="switchTab('preview')">📄 Preview</button>
+</div>
+
+<div class="content">
+
+  <!-- ══════════════ FORM PANEL ══════════════ -->
+  <aside class="form-panel tab-active" id="panel-form">
+
+    <!-- Invoice Details -->
+    <div class="card">
+      <div class="sec-title">Invoice Details</div>
+      <div class="grid2">
+        <div class="fg">
+          <label class="fl">Invoice No.</label>
+          <input class="fi" id="f-invnum" placeholder="e.g. 2389000755" oninput="renderPreview()">
+        </div>
+        <div class="fg">
+          <label class="fl">Invoice Date</label>
+          <input class="fi" id="f-invdate" type="date" oninput="renderPreview()">
+        </div>
+      </div>
+      <div class="grid2" style="margin-top:10px">
+        <div class="fg">
+          <label class="fl">Loading Point / نقطة الشحن</label>
+          <input class="fi" id="f-portload" placeholder="e.g. Alexandria Port" oninput="renderPreview()">
+        </div>
+        <div class="fg">
+          <label class="fl">Discharge Point / نقطة الوصول</label>
+          <input class="fi" id="f-port" placeholder="e.g. Rotterdam, Germany" oninput="renderPreview()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Customer Info -->
+    <div class="card">
+      <div class="sec-title">Customer Information</div>
+      <div class="grid2">
+        <div class="fg">
+          <label class="fl">Company Name</label>
+          <input class="fi" id="f-company" placeholder="Buyer company name" oninput="renderPreview()">
+        </div>
+        <div class="fg">
+          <label class="fl">Country / البلد</label>
+          <input class="fi" id="f-country" placeholder="e.g. Germany" oninput="renderPreview()">
+        </div>
+      </div>
+      <div class="grid2" style="margin-top:8px">
+        <div class="fg">
+          <label class="fl">Email</label>
+          <input class="fi" id="f-email" type="email" placeholder="client@company.com" oninput="renderPreview()">
+        </div>
+        <div class="fg">
+          <label class="fl">Phone</label>
+          <input class="fi" id="f-phone" type="tel" placeholder="+49..." oninput="renderPreview()">
+        </div>
+      </div>
+      <div class="grid2" style="margin-top:8px">
+        <div class="fg">
+          <label class="fl">Address / العنوان</label>
+          <input class="fi" id="f-address" placeholder="Street, City, ZIP" oninput="renderPreview()">
+        </div>
+        <div class="fg">
+          <label class="fl">Website</label>
+          <input class="fi" id="f-website" type="url" placeholder="www.client.com" oninput="renderPreview()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Line Items -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="sec-title" style="margin-bottom:0">Line Items</div>
+        <button class="btn btn-outline btn-sm" onclick="addRow()">+ Add Row</button>
+      </div>
+
+      <!-- desktop header -->
+      <div class="items-hdr">
+        <span style="text-align:left">Product / Flavours</span>
+        <span>Pack</span>
+        <span>U/Ctn</span>
+        <span>Qty</span>
+        <span>Price $</span>
+        <span></span>
+      </div>
+
+      <div id="items-wrap"></div>
+
+      <!-- notes + discount -->
+      <div class="grid2" style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08)">
+        <div class="fg" style="margin-bottom:0">
+          <label class="fl">Notes</label>
+          <input class="fi" id="f-notes" placeholder="Special packing, LC…" oninput="renderPreview()">
+        </div>
+        <div class="fg" style="margin-bottom:0">
+          <label class="fl">Discount %</label>
+          <input class="fi" id="f-disc" type="number" min="0" max="100" value="0" oninput="renderPreview()">
+        </div>
+      </div>
+
+      <!-- totals -->
+      <div class="totals">
+        <div class="titem">Subtotal: <strong id="t-sub">$0.00</strong></div>
+        <div class="titem" id="t-disc-wrap" style="display:none">
+          Discount: <strong id="t-disc" style="color:#f87171"></strong>
+        </div>
+        <div class="titem">Total: <strong id="t-total" style="font-size:16px">$0.00</strong></div>
+      </div>
+    </div>
+
+    <!-- mobile preview button -->
+    <div style="display:none" id="mob-prev-btn-wrap">
+      <button class="btn btn-amber" style="width:100%;justify-content:center;margin-bottom:14px"
+              onclick="switchTab('preview')">
+        👁️ View Invoice Preview
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- ══════════════ PREVIEW PANEL ══════════════ -->
+  <div class="preview-panel" id="panel-preview">
+    <div class="prev-head">
+      <div class="prev-label">📄 Invoice Preview</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Print / PDF</button>
+        <button class="btn btn-amber btn-sm" id="dl-btn2" onclick="downloadPDF()">⬇️ Download</button>
+      </div>
+    </div>
+    <div id="invoice-doc" class="inv"></div>
+  </div>
+
+</div><!-- /content -->
+
+<!-- ══════════════ SCRIPT ══════════════ -->
+<script>
+/* ─── STATE ─── */
+let items = [];
+let counter = 0;
+const uid = () => 'r' + (++counter);
+
+/* ─── TABS (mobile) ─── */
+function switchTab(tab) {
+  document.getElementById('panel-form').classList.toggle('tab-active', tab === 'form');
+  document.getElementById('panel-preview').classList.toggle('tab-active', tab === 'preview');
+  document.getElementById('tab-form').classList.toggle('active', tab === 'form');
+  document.getElementById('tab-prev').classList.toggle('active', tab === 'preview');
+}
+
+/* ─── ADD / REMOVE ROW ─── */
+function addRow() {
+  items.push({ id: uid(), name:'', flavours:[], pack:'', upc:'', qty:'', price:'' });
+  renderItems();
+  renderPreview();
+}
+function removeRow(id) {
+  items = items.filter(x => x.id !== id);
+  renderItems();
+  renderPreview();
+}
+
+/* ─── UPDATE FIELD ─── */
+function sf(id, field, val) {
+  const it = items.find(x => x.id === id);
+  if (it) { it[field] = val; renderPreview(); }
+}
+
+/* ─── FLAVOURS ─── */
+function addFlavour(id) {
+  const inp = document.getElementById('fi-' + id);
+  if (!inp) return;
+  const val = inp.value.trim();
+  if (!val) return;
+  const it = items.find(x => x.id === id);
+  if (it) { it.flavours.push(val); inp.value = ''; }
+  renderItems();
+  renderPreview();
+}
+function removeFlavour(id, idx) {
+  const it = items.find(x => x.id === id);
+  if (it) it.flavours.splice(idx, 1);
+  renderItems();
+  renderPreview();
+}
+
+/* ─── RENDER ITEMS FORM ─── */
+function renderItems() {
+  const wrap = document.getElementById('items-wrap');
+  if (!wrap) return;
+
+  wrap.innerHTML = items.map((it, rowIdx) => `
+    <div class="item-row" id="row-${it.id}">
+
+      <!-- product name + flavours (spans full width on mobile) -->
+      <div class="item-cell" style="min-width:0">
+        <input class="ii left"
+          value="${esc(it.name)}" placeholder="Product name"
+          oninput="sf('${it.id}','name',this.value)">
+        ${it.flavours.length ? `
+          <div class="ftags">
+            ${it.flavours.map((f,i)=>`
+              <span class="ftag">${esc(f)}
+                <button class="ftag-del" onclick="removeFlavour('${it.id}',${i})">×</button>
+              </span>`).join('')}
+          </div>` : ''}
+        <div class="fadd-row">
+          <input id="fi-${it.id}" class="fadd-inp" placeholder="+ Add flavour…"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();addFlavour('${it.id}')}">
+          <button class="fadd-btn" onclick="addFlavour('${it.id}')" title="Add">+</button>
+        </div>
+      </div>
+
+      <!-- pack size -->
+      <div class="mob-field" data-label="Pack Size">
+        <label class="mob-lbl">Pack Size</label>
+        <input class="ii" value="${esc(it.pack)}" placeholder="30g"
+          oninput="sf('${it.id}','pack',this.value)">
+      </div>
+
+      <!-- units/carton -->
+      <div class="mob-field" data-label="U/Ctn">
+        <label class="mob-lbl">U/Ctn</label>
+        <input class="ii" type="number" value="${esc(it.upc)}" placeholder="24"
+          oninput="sf('${it.id}','upc',this.value)">
+      </div>
+
+      <!-- qty -->
+      <div class="mob-field" data-label="Qty">
+        <label class="mob-lbl">Qty (Cartons)</label>
+        <input class="ii" type="number" value="${esc(it.qty)}" placeholder="0"
+          oninput="sf('${it.id}','qty',this.value)">
+      </div>
+
+      <!-- price -->
+      <div class="mob-field" data-label="Price $">
+        <label class="mob-lbl">Unit Price ($)</label>
+        <input class="ii" type="number" step="0.01" value="${esc(it.price)}" placeholder="0.00"
+          oninput="sf('${it.id}','price',this.value)">
+      </div>
+
+      <!-- remove -->
+      <button class="rb" onclick="removeRow('${it.id}')" title="Remove row">×</button>
+
+    </div>`).join('');
+
+  /* show/hide mobile field labels based on screen size */
+  applyMobileLabels();
+}
+
+function applyMobileLabels() {
+  const isMob = window.innerWidth <= 800;
+  document.querySelectorAll('.mob-lbl').forEach(el => {
+    el.style.display = isMob ? 'block' : 'none';
+  });
+}
+window.addEventListener('resize', applyMobileLabels);
+
+/* ─── RENDER INVOICE PREVIEW ─── */
+function renderPreview() {
+  const invNum  = gv('f-invnum');
+  const invDate = gv('f-invdate');
+  const port     = gv('f-port');
+  const portLoad = gv('f-portload');
+  const company = gv('f-company');
+  const country = gv('f-country');
+  const email   = gv('f-email');
+  const phone   = gv('f-phone');
+  const address = gv('f-address');
+  const website = gv('f-website');
+  const notes   = gv('f-notes');
+  const discPct = parseFloat(gv('f-disc')) || 0;
+
+  let subtotal = 0, totalQty = 0, rows = '';
+
+  items.forEach((it, i) => {
+    const qty   = parseInt(it.qty) || 0;
+    const price = parseFloat(it.price) || 0;
+    const line  = qty * price;
+    subtotal  += line;
+    totalQty  += qty;
+    const bg = i % 2 ? '#f0f4ff' : '#ffffff';
+    const flav = it.flavours.length
+      ? `<div style="margin-top:4px;line-height:1.8">
+           <span style="font-size:9px;color:#555;font-style:italic">Flavours: </span>
+           ${it.flavours.map(f =>
+             `<span style="display:inline-block;background:#f0eeff;border:1px solid #2d2a76;
+              color:#2d2a76;font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;
+              margin:1px 2px">${esc(f)}</span>`).join('')}
+         </div>` : '';
+    rows += `
+      <tr style="background:${bg}">
+        <td>${i+1}</td>
+        <td><div style="font-weight:700">${esc(it.name)||'—'}</div>${flav}</td>
+        <td>${esc(it.pack)||'—'}</td>
+        <td>${it.upc||'—'}</td>
+        <td>${qty||'—'}</td>
+        <td>${price > 0 ? '$'+price.toFixed(2) : '—'}</td>
+        <td>${line  > 0 ? '$'+line.toFixed(2)  : '—'}</td>
+      </tr>`;
+  });
+
+  const discAmt = subtotal * discPct / 100;
+  const total   = subtotal - discAmt;
+
+  /* form totals */
+  st('t-sub',   '$' + subtotal.toFixed(2));
+  st('t-total', '$' + total.toFixed(2));
+  const dw = document.getElementById('t-disc-wrap');
+  if (dw) { dw.style.display = discPct > 0 ? '' : 'none'; st('t-disc','-$'+discAmt.toFixed(2)); }
+
+  const discRow = discPct > 0 ? `
+    <tr>
+      <td colspan="6" style="text-align:right;font-weight:700;color:#b91c1c;background:#fef2f2">
+        Discount (${discPct}%) / خصم</td>
+      <td style="color:#b91c1c;font-weight:700;background:#fef2f2;text-align:center">
+        −$${discAmt.toFixed(2)}</td>
+    </tr>` : '';
+
+  const fmtDate = invDate
+    ? new Date(invDate + 'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})
+    : '—';
+
+  document.getElementById('invoice-doc').innerHTML = `
+  <!-- address top bar -->
+  <div style="background:#fff;border-bottom:1px solid #e5e7eb;
+              display:grid;grid-template-columns:1fr auto">
+    <div style="padding:10px 14px;border-right:1px solid #e5e7eb;font-size:10px;color:#374151;line-height:1.9">
+      <b style="color:#2d2a76">Address:</b> Cairo – Alexandria Agricultural Road, Km 90, Tanta, Egypt<br>
+      <b style="color:#2d2a76">Website:</b> www.egygulf-foods.com &nbsp;
+      <b style="color:#2d2a76">E-Mail:</b> export@egygulf-foods.com
+    </div>
+    <div style="padding:10px 14px;display:flex;flex-direction:column;gap:5px;
+                justify-content:center;min-width:195px">
+      <div style="display:flex;justify-content:space-between;gap:14px">
+        <span style="font-size:9.5px;font-weight:700;color:#2d2a76;text-transform:uppercase">Invoice No:</span>
+        <span style="font-size:12px;font-weight:800;font-family:monospace;color:#1e3a8a">${esc(invNum)||'—'}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:14px">
+        <span style="font-size:9.5px;font-weight:700;color:#2d2a76;text-transform:uppercase">Invoice Date:</span>
+        <span style="font-size:12px;font-weight:700;color:#111">${fmtDate}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- navy header -->
+  <div style="background:linear-gradient(135deg,#2d2a76,#3d3a96);
+              padding:14px 20px;display:flex;justify-content:space-between;align-items:center;
+              -webkit-print-color-adjust:exact;print-color-adjust:exact">
+    <div style="display:flex;align-items:center;gap:14px">
+      <svg width="140" height="52" viewBox="0 0 140 52" xmlns="http://www.w3.org/2000/svg">
+        <text x="3" y="38" font-family="Arial Black,Arial,sans-serif" font-weight="900"
+              font-size="34" fill="#ffffff" letter-spacing="-1">egygulf</text>
+        <text x="78" y="50" font-family="Arial Black,Arial,sans-serif" font-weight="700"
+              font-size="13" fill="#ffb607" letter-spacing="0.5">Foods</text>
+        <ellipse cx="49" cy="7" rx="5" ry="6.5" fill="#ffb607" transform="rotate(-15,49,7)"/>
+      </svg>
+      <div>
+        <div style="color:#fff;font-size:13px;font-weight:800">Egyptian Gulf International</div>
+        <div style="color:rgba(255,255,255,.8);font-size:9.5px">For Snacks &amp; Food Industries</div>
+        <div style="color:rgba(255,255,255,.5);font-size:8.5px;margin-top:1px">الشركة المصرية الخليجية الدولية للصناعات والأغذية الخفيفة</div>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div style="color:#ffb607;font-size:12px;font-weight:800">Egyptian Gulf International</div>
+      <div style="color:rgba(255,255,255,.85);font-size:10px;font-weight:600">For Snacks &amp; Food Industries</div>
+      <div style="color:rgba(255,255,255,.5);font-size:9px;margin-top:2px;direction:rtl">للصناعات و الأغذية الخفيفة</div>
+    </div>
+  </div>
+
+  <!-- title bar -->
+  <div style="background:#2d2a76;color:#ffb607;font-size:13px;font-weight:800;
+              text-align:center;padding:8px;letter-spacing:2px;text-transform:uppercase;
+              border-bottom:3px solid #ffb607;
+              -webkit-print-color-adjust:exact;print-color-adjust:exact">
+    فاتورة تجارية — COMMERCIAL INVOICE
+  </div>
+
+  <!-- client grid -->
+  <div style="border:1px solid #e5e7eb;border-top:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid #e5e7eb">
+      <div style="padding:8px 11px;border-right:1px solid #e5e7eb">
+        <div style="font-size:9px;font-weight:700;color:#2d2a76;text-transform:uppercase;margin-bottom:2px">Website:</div>
+        <div style="font-size:11px;font-weight:600;color:#111">${esc(website)||'—'}</div>
+      </div>
+      <div style="padding:8px 11px;border-right:1px solid #e5e7eb">
+        <div style="font-size:9px;font-weight:700;color:#2d2a76;text-transform:uppercase;margin-bottom:2px">Country / البلد:</div>
+        <div style="font-size:11px;font-weight:600;color:#111">${esc(country)||'—'}</div>
+      </div>
+      <div style="padding:8px 11px">
+        <div style="font-size:9px;font-weight:700;color:#2d2a76;text-transform:uppercase;margin-bottom:2px">Phone / الموبايل:</div>
+        <div style="font-size:11px;font-weight:600;color:#111">${esc(phone)||'—'}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr">
+      <div style="padding:8px 11px;border-right:1px solid #e5e7eb">
+        <div style="font-size:9px;font-weight:700;color:#2d2a76;text-transform:uppercase;margin-bottom:2px">Company Name / اسم الشركة:</div>
+        <div style="font-size:12px;font-weight:700;color:#111">${esc(company)||'—'}</div>
+      </div>
+      <div style="padding:8px 11px;border-right:1px solid #e5e7eb">
+        <div style="font-size:9px;font-weight:700;color:#2d2a76;text-transform:uppercase;margin-bottom:2px">Address / العنوان:</div>
+        <div style="font-size:11px;font-weight:600;color:#111">${esc(address)||'—'}</div>
+      </div>
+      <div style="padding:8px 11px">
+        <div style="font-size:9px;font-weight:700;color:#2d2a76;text-transform:uppercase;margin-bottom:2px">Email / الإيميل:</div>
+        <div style="font-size:11px;font-weight:600;color:#111">${esc(email)||'—'}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- products table -->
+  <table class="inv-table">
+    <thead>
+      <tr>
+        <th style="width:34px">NO</th>
+        <th style="text-align:left">Product Description<br>
+          <span style="font-weight:500;opacity:.8;font-size:8.5px">وصف المنتج</span></th>
+        <th>Pack Size<br><span style="font-weight:500;opacity:.8;font-size:8.5px">حجم العبوة</span></th>
+        <th>Units/Carton<br><span style="font-weight:500;opacity:.8;font-size:8.5px">عدد الوحدات</span></th>
+        <th>Qty (Cartons)<br><span style="font-weight:500;opacity:.8;font-size:8.5px">الكمية</span></th>
+        <th>Unit Price (USD)<br><span style="font-weight:500;opacity:.8;font-size:8.5px">سعر الوحدة</span></th>
+        <th>Total Value (USD)<br><span style="font-weight:500;opacity:.8;font-size:8.5px">الإجمالي</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+      ${discRow}
+      <tr class="inv-total-row">
+        <td colspan="4" style="text-align:right;font-size:11px">
+          Total Quantity (Cartons) / إجمالي الكمية</td>
+        <td style="font-size:13px">${totalQty} cartons</td>
+        <td style="text-align:right;font-size:11px">TOTAL VALUE (USD)</td>
+        <td style="font-size:14px">$${total.toFixed(2)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ports -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid #e5e7eb;border-top:none">
+    <div style="padding:8px 13px;border-right:1px solid #e5e7eb;font-size:12px;color:#111">
+      <b style="color:#2d2a76">Loading Point / نقطة الشحن:–</b> &nbsp;${esc(portLoad)||'—'}
+    </div>
+    <div style="padding:8px 13px;font-size:12px;color:#111">
+      <b style="color:#2d2a76">Discharge Point / نقطة الوصول:–</b> &nbsp;${esc(port)||'—'}
+    </div>
+  </div>
+
+  <!-- payment terms -->
+  <div style="margin-top:10px;background:#2d2a76;-webkit-print-color-adjust:exact;print-color-adjust:exact">
+    <div style="background:#ffb607;color:#2d2a76;font-weight:800;font-size:11px;
+                letter-spacing:1.3px;text-transform:uppercase;padding:7px 14px;text-align:center">
+      PAYMENT TERMS, DELIVERY &amp; LIABILITY — شروط السداد والتسليم والمسؤولية
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr">
+      <div style="padding:11px 14px;border-right:1px solid rgba(255,255,255,.12)">
+        <div style="color:#ffb607;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">PAYMENT TERMS</div>
+        <p style="font-size:9.5px;color:rgba(255,255,255,.85);line-height:1.8;margin-bottom:7px">
+          .advance payment before starting production 50%<br>
+          .before loading from factory 50%<br>
+          .Production and shipment will not commence unless all due payments are fully received
+        </p>
+        <div style="color:#ffb607;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">DELIVERY &amp; RISK TRANSFER</div>
+        <p style="font-size:9.5px;color:rgba(255,255,255,.85);line-height:1.8;margin-bottom:7px">
+          Goods are delivered Ex-Works (Factory). All risks and responsibilities transfer to the buyer immediately upon loading.
+        </p>
+        <div style="color:#ffb607;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">LIMITATION OF LIABILITY</div>
+        <p style="font-size:9.5px;color:rgba(255,255,255,.85);line-height:1.8">
+          The exporter shall not be liable for any indirect or consequential damages once goods leave the factory.
+        </p>
+      </div>
+      <div style="padding:11px 14px;direction:rtl;text-align:right">
+        <div style="color:#ffb607;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">شروط السداد</div>
+        <p style="font-size:9.5px;color:rgba(255,255,255,.85);line-height:1.8;margin-bottom:7px">
+          %50 من إجمالي قيمة الفاتورة قبل بدء الإنتاج.<br>%50 قبل تحميل البضاعة من أرض المصنع.<br>لا يتم الإنتاج أو التحميل قبل استلام الدفعات كاملة.
+        </p>
+        <div style="color:#ffb607;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">التسليم وتحمل المخاطر</div>
+        <p style="font-size:9.5px;color:rgba(255,255,255,.85);line-height:1.8;margin-bottom:7px">
+          يتم تسليم البضاعة أرض المصنع، وتنتقل المسؤولية إلى المشتري فور التحميل.
+        </p>
+        <div style="color:#ffb607;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">تحديد المسؤولية</div>
+        <p style="font-size:9.5px;color:rgba(255,255,255,.85);line-height:1.8">
+          لا تتحمل الشركة المصدرة أي مسؤولية عن إضرار غير مباشرة بعد مغادرة البضاعة للمصنع.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- validity -->
+  <div style="background:#ffb607;padding:6px 14px;font-size:10px;color:#1e3a8a;
+              text-align:center;font-weight:700;margin-top:8px;
+              -webkit-print-color-adjust:exact;print-color-adjust:exact">
+    The quotation / invoice is valid for two weeks (14 days) from the date of issue
+    — مدة صلاحية عرض السعر أو الفاتورة (14 يوماً) من تاريخ الإصدار
+  </div>
+  <div style="background:#dcfce7;border:1px solid #86efac;padding:6px 14px;
+              font-size:10px;color:#14532d;text-align:center;font-weight:700;margin-top:4px">
+    This invoice is issued for commercial and customs purposes only
+    — تم إصدار هذه الفاتورة لأغراض تجارية وجمركية فقط
+  </div>
+  ${notes ? `<div style="background:#fffbeb;border:1px solid #fcd34d;padding:8px 14px;
+                          font-size:11px;color:#78350f;margin-top:4px;border-radius:4px">
+               <b>Notes / ملاحظات:</b> ${esc(notes)}</div>` : ''}
+
+  <!-- bank details -->
+  <div style="margin-top:10px">
+    <div style="background:#2d2a76;color:#fff;font-weight:800;font-size:11px;
+                letter-spacing:1.3px;text-transform:uppercase;padding:7px 14px;text-align:center;
+                -webkit-print-color-adjust:exact;print-color-adjust:exact">
+      BANK DETAILS (FOR PAYMENT PURPOSES ONLY)
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid #e5e7eb;border-top:none">
+      <div style="padding:8px 14px;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb">
+        <div style="font-size:9px;font-weight:700;color:#2d2a76;text-transform:uppercase;margin-bottom:2px">Bank</div>
+        <div style="font-size:11.5px;font-weight:600;color:#111">Faisal Islamic Bank of Egypt – Tanta Branch</div>
+      </div>
+      <div style="padding:8px 14px;border-bottom:1px solid #e5e7eb">
+        <div style="font-size:9px;font-weight:700;color:#2d2a76;text-transform:uppercase;margin-bottom:2px">Beneficiary</div>
+        <div style="font-size:11.5px;font-weight:600;color:#111">Egyptian Gulf International for Industries and Light Foods</div>
+      </div>
+      <div style="padding:8px 14px;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb">
+        <div style="font-size:9px;font-weight:700;color:#2d2a76;text-transform:uppercase;margin-bottom:2px">Account No</div>
+        <div style="font-size:12px;font-weight:600;color:#111;font-family:monospace">900820803</div>
+      </div>
+      <div style="padding:8px 14px;border-bottom:1px solid #e5e7eb">
+        <div style="font-size:9px;font-weight:700;color:#2d2a76;text-transform:uppercase;margin-bottom:2px">IBAN (USD)</div>
+        <div style="font-size:11px;font-weight:600;color:#111;font-family:monospace">EG420059000900000100015847812</div>
+      </div>
+      <div style="padding:8px 14px;grid-column:1/-1">
+        <div style="font-size:9px;font-weight:700;color:#2d2a76;text-transform:uppercase;margin-bottom:2px">SWIFT / BIC</div>
+        <div style="font-size:12px;font-weight:600;color:#111;font-family:monospace">FIEGEGCXXXX</div>
+      </div>
+    </div>
+  </div>
+  <div style="height:16px"></div>
+  `;
+}
+
+/* ─── CLEAR ─── */
+function clearForm() {
+  ['f-invnum','f-invdate','f-port','f-portload','f-company','f-country',
+   'f-email','f-phone','f-address','f-website','f-notes'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const d = document.getElementById('f-disc'); if (d) d.value = '0';
+  items = [];
+  renderItems();
+  renderPreview();
+}
+
+/* ─── PDF ─── */
+async function downloadPDF() {
+  const b1 = document.getElementById('dl-btn');
+  const b2 = document.getElementById('dl-btn2');
+  [b1,b2].forEach(b=>{ if(b){ b.disabled=true; b.textContent='⏳ Generating…'; }});
+  try {
+    const el = document.getElementById('invoice-doc');
+    const canvas = await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false});
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+    const imgH = (canvas.height * pw) / canvas.width;
+    let y = 0;
+    while(y < imgH){ if(y>0) pdf.addPage(); pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,-y,pw,imgH); y+=ph; }
+    pdf.save('invoice-'+(gv('f-invnum')||'draft')+'.pdf');
+  } catch(e) {
+    alert('PDF failed — use Print → Save as PDF instead.');
+  } finally {
+    if(b1){ b1.disabled=false; b1.textContent='⬇️ Download PDF'; }
+    if(b2){ b2.disabled=false; b2.textContent='⬇️ Download'; }
+  }
+}
+
+/* ─── HELPERS ─── */
+const gv = id => (document.getElementById(id)||{}).value || '';
+const st = (id,t) => { const e=document.getElementById(id); if(e) e.textContent=t; };
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* ─── INIT ─── */
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('f-invdate').value = new Date().toISOString().split('T')[0];
+  /* show mobile preview button */
+  const wrap = document.getElementById('mob-prev-btn-wrap');
+  if(wrap && window.innerWidth <= 800) wrap.style.display = 'block';
+  addRow();
+});
+</script>
+</body>
+</html>
