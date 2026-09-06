@@ -189,6 +189,20 @@ body {
 }
 .rb:hover { background: #fecaca; }
 
+/* ─── DISCOUNT TOGGLE ─── */
+.disc-toggle {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 5px; padding: 4px 10px;
+  background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.18);
+  color: #94a3b8; font-size: 11px; font-weight: 700;
+  border-radius: 20px; cursor: pointer; transition: .15s;
+  font-family: 'Inter','Cairo',Arial,sans-serif;
+}
+.disc-toggle:hover { background: rgba(255,255,255,.14); }
+.disc-toggle.on {
+  background: rgba(248,113,113,.15); border-color: rgba(248,113,113,.5); color: #f87171;
+}
+
 /* ─── FLAVOUR TAGS ─── */
 .ftags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
 .ftag {
@@ -502,7 +516,7 @@ function switchTab(tab) {
 
 /* ─── ADD / REMOVE ROW ─── */
 function addRow() {
-  items.push({ id: uid(), name:'', flavours:[], pack:'', upc:'', qty:'', price:'' });
+  items.push({ id: uid(), name:'', flavours:[], pack:'', upc:'', qty:'', price:'', onDisc:false });
   renderItems();
   renderPreview();
 }
@@ -549,6 +563,10 @@ function renderItems() {
         <input class="ii left"
           value="${esc(it.name)}" placeholder="Product name"
           oninput="sf('${it.id}','name',this.value)">
+        <button type="button" class="disc-toggle ${it.onDisc ? 'on' : ''}"
+          onclick="sf('${it.id}','onDisc',${!it.onDisc})">
+          ${it.onDisc ? '🏷️ On Discount' : '+ Apply Discount'}
+        </button>
         ${it.flavours.length ? `
           <div class="ftags">
             ${it.flavours.map((f,i)=>`
@@ -623,13 +641,14 @@ function renderPreview() {
   const notes   = gv('f-notes');
   const discPct = parseFloat(gv('f-disc')) || 0;
 
-  let subtotal = 0, totalQty = 0, rows = '';
+  let subtotal = 0, discountableSubtotal = 0, totalQty = 0, rows = '';
 
   items.forEach((it, i) => {
     const qty   = parseInt(it.qty) || 0;
     const price = parseFloat(it.price) || 0;
     const line  = qty * price;
     subtotal  += line;
+    if (it.onDisc) discountableSubtotal += line;
     totalQty  += qty;
     const bg = i % 2 ? '#f0f4ff' : '#ffffff';
     const flav = it.flavours.length
@@ -640,10 +659,14 @@ function renderPreview() {
               color:#2d2a76;font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;
               margin:1px 2px">${esc(f)}</span>`).join('')}
          </div>` : '';
+    const discBadge = (it.onDisc && discPct > 0)
+      ? `<span style="display:inline-block;margin-top:4px;background:#fef2f2;border:1px solid #f87171;
+           color:#b91c1c;font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px">
+           −${discPct}% / خصم</span>` : '';
     rows += `
       <tr style="background:${bg}">
         <td>${i+1}</td>
-        <td><div style="font-weight:700">${esc(it.name)||'—'}</div>${flav}</td>
+        <td><div style="font-weight:700">${esc(it.name)||'—'}</div>${flav}${discBadge}</td>
         <td>${esc(it.pack)||'—'}</td>
         <td>${it.upc||'—'}</td>
         <td>${qty||'—'}</td>
@@ -652,19 +675,19 @@ function renderPreview() {
       </tr>`;
   });
 
-  const discAmt = subtotal * discPct / 100;
+  const discAmt = discountableSubtotal * discPct / 100;
   const total   = subtotal - discAmt;
 
   /* form totals */
   st('t-sub',   '$' + subtotal.toFixed(2));
   st('t-total', '$' + total.toFixed(2));
   const dw = document.getElementById('t-disc-wrap');
-  if (dw) { dw.style.display = discPct > 0 ? '' : 'none'; st('t-disc','-$'+discAmt.toFixed(2)); }
+  if (dw) { dw.style.display = (discPct > 0 && discountableSubtotal > 0) ? '' : 'none'; st('t-disc','-$'+discAmt.toFixed(2)); }
 
-  const discRow = discPct > 0 ? `
+  const discRow = (discPct > 0 && discountableSubtotal > 0) ? `
     <tr>
       <td colspan="6" style="text-align:right;font-weight:700;color:#b91c1c;background:#fef2f2">
-        Discount (${discPct}%) / خصم</td>
+        Discount (${discPct}%) on marked items / خصم على المنتجات المحددة</td>
       <td style="color:#b91c1c;font-weight:700;background:#fef2f2;text-align:center">
         −$${discAmt.toFixed(2)}</td>
     </tr>` : '';
