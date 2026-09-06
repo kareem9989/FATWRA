@@ -336,6 +336,8 @@ body {
 @media (max-width: 400px) {
   .topbar-btns .btn-ghost { display: none; }
   .topbar-btns .btn-outline { display: none; }
+  .topbar-btns .btn-ghost#saved-btn,
+  .topbar-btns .btn-outline#save-btn { display: inline-flex; }
 }
 </style>
 </head>
@@ -357,11 +359,27 @@ body {
     </div>
   </div>
   <div class="topbar-btns">
+    <button class="btn btn-ghost" id="saved-btn" onclick="openSavedList()">📂 Saved Invoices</button>
+    <button class="btn btn-outline" id="save-btn" onclick="saveInvoice()">💾 Save</button>
     <button class="btn btn-ghost" onclick="clearForm()">🗑 Clear</button>
     <button class="btn btn-outline" onclick="window.print()">🖨️ Print</button>
     <button class="btn btn-amber" id="dl-btn" onclick="downloadPDF()">⬇️ Download PDF</button>
   </div>
 </header>
+
+<!-- ══════════════ SAVED INVOICES MODAL ══════════════ -->
+<div id="saved-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;
+     align-items:center;justify-content:center;padding:20px">
+  <div style="background:#1a2233;border:1px solid rgba(255,182,7,.35);border-radius:14px;
+       width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;
+         padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.1)">
+      <div style="font-weight:800;color:#fff;font-size:15px">📂 Saved Invoices</div>
+      <button class="btn btn-ghost btn-sm" onclick="closeSavedList()">✕</button>
+    </div>
+    <div id="saved-list" style="overflow-y:auto;padding:12px 18px"></div>
+  </div>
+</div>
 
 <!-- ══════════════ MOBILE TAB BAR ══════════════ -->
 <div class="tab-bar">
@@ -503,6 +521,7 @@ body {
 <script>
 /* ─── STATE ─── */
 let items = [];
+let currentInvoiceId = null;
 let counter = 0;
 const uid = () => 'r' + (++counter);
 
@@ -910,6 +929,99 @@ function renderPreview() {
   `;
 }
 
+/* ─── SAVED INVOICES (localStorage) ─── */
+const SAVE_KEY = 'egf_saved_invoices';
+const FIELD_IDS = ['f-invnum','f-invdate','f-port','f-portload','f-company','f-country',
+  'f-email','f-phone','f-address','f-website','f-notes','f-disc'];
+
+function getSavedInvoices() {
+  try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || []; }
+  catch(e) { return []; }
+}
+function setSavedInvoices(list) {
+  localStorage.setItem(SAVE_KEY, JSON.stringify(list));
+}
+
+function saveInvoice() {
+  const list = getSavedInvoices();
+  const invnum = gv('f-invnum');
+  const company = gv('f-company');
+  const defaultName = [invnum, company].filter(Boolean).join(' — ') || 'Untitled Invoice';
+  const name = prompt('Save invoice as / احفظ باسم:', defaultName);
+  if (name === null) return; // cancelled
+
+  const data = {};
+  FIELD_IDS.forEach(id => { data[id] = gv(id); });
+  data.items = JSON.parse(JSON.stringify(items));
+
+  // if editing an already-loaded invoice, offer to overwrite it
+  const existingIdx = list.findIndex(inv => inv.id === currentInvoiceId);
+  const record = {
+    id: currentInvoiceId || uid(),
+    name: name.trim() || defaultName,
+    savedAt: new Date().toISOString(),
+    data
+  };
+  if (existingIdx > -1) {
+    list[existingIdx] = record;
+  } else {
+    list.push(record);
+  }
+  currentInvoiceId = record.id;
+  setSavedInvoices(list);
+  alert('✅ Invoice saved / تم الحفظ');
+}
+
+function openSavedList() {
+  const list = getSavedInvoices().sort((a,b) => new Date(b.savedAt) - new Date(a.savedAt));
+  const wrap = document.getElementById('saved-list');
+  wrap.innerHTML = list.length ? list.map(inv => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;
+         background:#131c2b;border:1px solid rgba(255,255,255,.08);border-radius:10px;
+         padding:10px 14px;margin-bottom:8px">
+      <div style="min-width:0">
+        <div style="font-weight:700;color:#fff;font-size:13px;white-space:nowrap;
+             overflow:hidden;text-overflow:ellipsis">${esc(inv.name)}</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px">
+          ${new Date(inv.savedAt).toLocaleString('en-GB')}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-outline btn-sm" onclick="loadInvoice('${inv.id}')">Open</button>
+        <button class="btn btn-ghost btn-sm" style="color:#f87171" onclick="deleteInvoice('${inv.id}')">🗑</button>
+      </div>
+    </div>`).join('') : `<div style="color:#94a3b8;text-align:center;padding:30px 0;font-size:13px">
+      No saved invoices yet / مفيش فواتير محفوظة</div>`;
+  document.getElementById('saved-modal').style.display = 'flex';
+}
+
+function closeSavedList() {
+  document.getElementById('saved-modal').style.display = 'none';
+}
+
+function loadInvoice(id) {
+  const list = getSavedInvoices();
+  const inv = list.find(x => x.id === id);
+  if (!inv) return;
+  FIELD_IDS.forEach(fid => {
+    const el = document.getElementById(fid);
+    if (el) el.value = inv.data[fid] || (fid === 'f-disc' ? '0' : '');
+  });
+  items = JSON.parse(JSON.stringify(inv.data.items || []));
+  currentInvoiceId = inv.id;
+  renderItems();
+  renderPreview();
+  closeSavedList();
+}
+
+function deleteInvoice(id) {
+  if (!confirm('Delete this saved invoice? / تحذف الفاتورة دي؟')) return;
+  let list = getSavedInvoices();
+  list = list.filter(x => x.id !== id);
+  setSavedInvoices(list);
+  if (currentInvoiceId === id) currentInvoiceId = null;
+  openSavedList();
+}
+
 /* ─── CLEAR ─── */
 function clearForm() {
   ['f-invnum','f-invdate','f-port','f-portload','f-company','f-country',
@@ -918,6 +1030,7 @@ function clearForm() {
   });
   const d = document.getElementById('f-disc'); if (d) d.value = '0';
   items = [];
+  currentInvoiceId = null;
   renderItems();
   renderPreview();
 }
